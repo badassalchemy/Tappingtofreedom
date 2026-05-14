@@ -1476,7 +1476,55 @@ Return JSON:
     document.getElementById("generatingState").style.display="none";document.getElementById("generatorForm").style.display="block";
     document.getElementById("customBlock").value="";document.querySelectorAll("#generatorForm .quiz-option").forEach(b=>b.classList.remove("selected"));state.customForm={block:"",body:null,outcome:null};document.getElementById("generateBtn").disabled=true;
     openSession(cs.id);
-  }catch(err){document.getElementById("generatingState").innerHTML=`<div class="empty-state"><div class="empty-state-icon">⚠️</div><h3>Didn't come through</h3><p>Try again in a moment.</p><button class="primary-btn" onclick="resetGen()" style="margin-top:20px">Try again</button></div>`;}
+  }catch(err){
+    // Fallback: find the closest matching pre-written session
+    const{block,body,outcome}=state.customForm;
+    const blockLower=(block||"").toLowerCase();
+    const outcomeMap={calm:["fear","anxiety","overwhelm","scarcity"],open:["receiving","blocked","manifesting","abundance"],worthy:["worth","shame","deserve","unworthiness"],free:["patterns","old loops","identity","releasing"],hopeful:["stuck","transition","grief","hopeless"]};
+    const targetEmotions=outcomeMap[outcome]||[];
+    const scored=SESSIONS.map(s=>{
+      let score=0;
+      // Body location match
+      if(body&&s.bodyLocation.toLowerCase().includes(body.split("-")[0])) score+=4;
+      // Emotion/trigger word match from user's block text
+      s.triggerTags.forEach(t=>{if(blockLower.includes(t)) score+=5;});
+      s.emotionTags.forEach(t=>{if(blockLower.includes(t)) score+=3;});
+      // Outcome alignment
+      targetEmotions.forEach(e=>{if(s.emotionTags.includes(e)||s.triggerTags.includes(e)) score+=4;});
+      // General keyword scan
+      const sessionText=(s.title+" "+s.forYou+" "+s.rounds.join(" ")).toLowerCase();
+      const userWords=blockLower.split(/\s+/).filter(w=>w.length>4);
+      userWords.forEach(w=>{if(sessionText.includes(w)) score+=1;});
+      return{s,score};
+    }).sort((a,b)=>b.score-a.score);
+    const best=scored[0].s;
+    const cat=CATEGORIES.find(c=>c.id===best.category);
+    document.getElementById("generatingState").style.display="none";
+    document.getElementById("generatorForm").style.display="block";
+    document.getElementById("customBlock").value="";
+    document.querySelectorAll("#generatorForm .quiz-option").forEach(b=>b.classList.remove("selected"));
+    state.customForm={block:"",body:null,outcome:null};
+    document.getElementById("generateBtn").disabled=true;
+    // Show match card before opening
+    const matchDiv=document.createElement("div");
+    matchDiv.style.cssText="position:fixed;inset:0;background:rgba(10,10,31,.92);backdrop-filter:blur(16px);z-index:200;display:flex;align-items:center;justify-content:center;padding:20px;animation:fadeIn .3s ease";
+    matchDiv.innerHTML=`<div style="max-width:520px;width:100%;background:linear-gradient(180deg,#1a1638 0%,#15122e 100%);border:1px solid rgba(236,130,205,.35);border-radius:24px;padding:40px;text-align:center;box-shadow:0 30px 80px rgba(0,0,0,.6)">
+      <div style="font-size:40px;margin-bottom:16px">🌸</div>
+      <div style="font-family:var(--font-mono);font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--pink);margin-bottom:8px">Closest Match Found</div>
+      <h3 style="font-family:var(--font-serif);font-size:22px;font-weight:600;margin-bottom:10px;line-height:1.3">The AI was unavailable, but we found the session that fits your block most closely.</h3>
+      <p style="color:var(--text-secondary);font-size:14px;margin-bottom:24px;line-height:1.65">Based on what you described, this pre-written session targets the same block from the vault.</p>
+      <div style="background:rgba(255,255,255,.04);border:1px solid rgba(236,130,205,.3);border-radius:16px;padding:22px;text-align:left;margin-bottom:24px">
+        <div style="font-family:var(--font-mono);font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--pink);margin-bottom:8px">${cat.icon} ${cat.label}</div>
+        <div style="font-family:var(--font-serif);font-size:19px;font-weight:600;margin-bottom:8px">${best.title}</div>
+        <div style="color:var(--text-secondary);font-size:13px;line-height:1.6">${best.forYou}</div>
+      </div>
+      <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap">
+        <button onclick="this.closest('div[style*=fixed]').remove();openSession('${best.id}')" style="background:var(--grad-button);border:none;color:white;font-family:var(--font-sans);font-weight:600;font-size:14px;padding:14px 28px;border-radius:30px;cursor:pointer;box-shadow:0 10px 30px rgba(236,130,205,.4)">Start this session ✦</button>
+        <button onclick="this.closest('div[style*=fixed]').remove()" style="background:transparent;border:1px solid rgba(255,255,255,.12);color:var(--text-primary);font-family:var(--font-sans);font-size:13px;padding:12px 22px;border-radius:30px;cursor:pointer">Go back</button>
+      </div>
+    </div>`;
+    document.body.appendChild(matchDiv);
+  }
 }
 function resetGen(){document.getElementById("generatingState").style.display="none";document.getElementById("generatorForm").style.display="block";}
 
